@@ -6,31 +6,31 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class BlkQueueImpl<T> implements BlkQueue<T> {
-    private LinkedList<T> linkedList ;
+    private LinkedList<T> linkedList;
     private int maxSize;
 
-    Lock mutex = new ReentrantLock();
-    Condition consumerWaitingCondition = mutex.newCondition();
-    Condition producerWaitingCondition = mutex.newCondition();
+    Lock mutex = new ReentrantLock(); // Создание объекта блокировки для синхронизации
+    Condition consumerWaitingCondition = mutex.newCondition(); // Создание условия ожидания для потребителя
+    Condition producerWaitingCondition = mutex.newCondition(); // Создание условия ожидания для производителя
 
-    public BlkQueueImpl( int maxSize) {
-        this.linkedList = new LinkedList<>();
-        this.maxSize = maxSize;
+    public BlkQueueImpl(int maxSize) {
+        this.linkedList = new LinkedList<>(); // Инициализация связанного списка
+        this.maxSize = maxSize; // Установка максимального размера очереди
     }
 
     @Override
     public void push(T message) {
         mutex.lock(); // Захват мьютекса
         try {
-            while (linkedList.size() >= maxSize) {
+            while (linkedList.size() >= maxSize) { // Проверка, заполнена ли очередь
                 try {
-                    consumerWaitingCondition.await();
+                    consumerWaitingCondition.await(); // Если очередь заполнена, ожидание сигнала от потребителя
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-            linkedList.add(message);
-            producerWaitingCondition.signal();
+            linkedList.add(message); // Добавление элемента в очередь
+            producerWaitingCondition.signal(); // Сигнализация потребителю о наличии данных в очереди
         } finally {
             mutex.unlock(); // Освобождение мьютекса
         }
@@ -40,19 +40,18 @@ public class BlkQueueImpl<T> implements BlkQueue<T> {
     public T pop() {
         mutex.lock(); // Захват мьютекса
         try {
-            while (linkedList.isEmpty()) {
+            while (linkedList.isEmpty()) { // Проверка, пуста ли очередь
                 try {
-                    producerWaitingCondition.await(); // Ожидание, пока сообщение не будет отправлено
+                    producerWaitingCondition.await(); // Если очередь пуста, ожидание сигнала от производителя
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-            T res = linkedList.poll();
-            consumerWaitingCondition.signal(); // Уведомление отправителя о получении сообщения
-            return res; // Возврат полученного сообщения
+            T res = linkedList.poll(); // Извлечение элемента из очереди
+            consumerWaitingCondition.signal(); // Сигнализация производителю о возможности добавления новых данных
+            return res; // Возвращение извлеченного элемента
         } finally {
             mutex.unlock(); // Освобождение мьютекса
         }
     }
-
 }
